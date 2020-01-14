@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+<style>
+.dot {overflow:hidden;float:left;width:12px;height:12px;background: url('http://t1.daumcdn.net/localimg/localimages/07/mapapidoc/mini_circle.png');}    
+.dotOverlay {position:relative;bottom:10px;border-radius:6px;border: 1px solid #ccc;border-bottom:2px solid #ddd;float:left;font-size:12px;padding:5px;background:#fff;}
+.dotOverlay:nth-of-type(n) {border:0; box-shadow:0px 1px 2px #888;}    
+.number {font-weight:bold;color:#ee6152;}
+.dotOverlay:after {content:'';position:absolute;margin-left:-6px;left:50%;bottom:-8px;width:11px;height:8px;background:url('http://t1.daumcdn.net/localimg/localimages/07/mapapidoc/vertex_white_small.png')}
+.distanceInfo {position:relative;top:5px;left:5px;list-style:none;margin:0;}
+.distanceInfo .label {display:inline-block;width:50px;}
+.distanceInfo:after {content:none;}
+</style>
+</head>
+<body>
+<div id="map" style="width:550px;height:550px;"></div>  
+<p>
+    <em>지도를 마우스로 클릭하면 선 그리기가 시작되고<br>오른쪽 마우스를 클릭하면 선 그리기가 종료됩니다</em>
+</p>
+<div id="clickLatlng"></div>	<!--  클릭하면 이곳에 메세지 출력. -->
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=4ac39ad7824ced1e734d0b09f8be5262"></script>
+<script>
+
+
+
+function Bus_stop(elapsedTime,Lat, Lng){
+	this.elapsedTime=elapsedTime;
+	this.Lat=Lat;
+	this.Lng=Lng;
+}
+
+
+function Station(name,Lat,Lng)
+{
+	this.Lat=Lat;
+	this.Lng=Lng;
+	this.name=name;
+}
+
+
+var bus =[new Bus_stop(10,37.4903377, 127.0324969),new Bus_stop(10,37.4914377, 127.0364969),
+		  new Bus_stop(10,37.4713377, 127.0355969),new Bus_stop(10,37.4823377, 127.0333969)];
+
+var station=[new Station("매봉",37.48692,127.04676),new Station("양재",37.48455,127.03410),
+	new Station("강남",37.49810,127.027683),new Station("역삼",37.5008041,127.03659)];
+
+var resultDiv = document.getElementById('clickLatlng'); 
+resultDiv.innerHTML = station[0].name+ '+' + station[0].Lat + '+' + station[0].Lng;
+
+
+var mapContainer = document.getElementById('map'), // 지도를 표시할 div  
+	mapOption = { 
+	    center: new kakao.maps.LatLng(37.490176,127.019539), // 지도의 중심좌표
+	    level: 5 // 지도의 확대 레벨
+	};
+	var def_latlng = new kakao.maps.LatLng(37.490176,127.019539); //서초1동 주민센터
+	var map = new kakao.maps.Map(mapContainer, mapOption); // 지도를 생성합니다
+	displayCircleDot(def_latlng);	//양재역에 점찍기.
+	for(var i=0;i<4;i++)
+	{
+		displayCircleDot(new kakao.maps.LatLng(bus[i].Lat,bus[i].Lng));
+	}
+	// 지도를 클릭한 위치에 표출할 마커입니다
+	var marker = new kakao.maps.Marker({  
+	    position: map.getCenter()  // 지도 중심좌표에 마커를 생성합니다
+	}); 
+	marker.setMap(map); // 지도에 마커를 표시합니다
+	
+	clickLine = new kakao.maps.Polyline({
+        map: map, // 선을 표시할 지도입니다 
+        path: null, // 선을 구성하는 좌표 배열입니다 클릭한 위치를 넣어줍니다
+        strokeWeight: 3, // 선의 두께입니다 
+        strokeColor: '#db0b40', // 선의 색깔입니다	//완료된 색.
+        strokeOpacity: 1, // 선의 불투명도입니다 0에서 1 사이값이며 0에 가까울수록 투명합니다
+        strokeStyle: 'solid' // 선의 스타일입니다
+    });
+	// 지도에 클릭 이벤트를 등록합니다
+	// 지도를 클릭하면 마지막 파라미터로 넘어온 함수를 호출합니다
+	kakao.maps.event.addListener(map, 'click', function(mouseEvent) {        
+    
+		
+		
+		
+	    // 클릭한 위도, 경도 정보를 가져옵니다 
+	    var latlng = mouseEvent.latLng; 
+	    var mintime = calcElapsedTime(calcDistance(def_latlng.getLat(),def_latlng.getLng(),latlng.getLat(),latlng.getLng()));
+	    var busidx, staidx;
+	    var dist1,dist2;
+	    var time;
+	    var i,j;
+	    var mini=-1;
+	    var minj=-1;
+	    var resultDiv = document.getElementById('clickLatlng'); 
+	    
+	    for(i=0;i<4;i++)
+   		{   	
+	    	for(j=0;j<4;j++)
+	    	{    	
+	    		time=bus[i].elapsedTime + calcElapsedTime(calcDistance(bus[i].Lat, bus[i].Lng, station[j].Lat, station[j].Lng)
+	    		+ calcDistance(station[j].Lat, station[j].Lng, latlng.getLat(), latlng.getLng()));
+	    		
+	    		if(mintime>time)
+	    		{
+	    				mini = i;
+	    				minj = j;
+	    				mintime=time;
+	    		}
+	    		resultDiv.innerHTML = 'd' + j;
+	    	}
+    	}
+	    
+	 	var path;
+	 	var distance;
+	    if(mini==-1) {
+	    	 distance= calcDistance(def_latlng.getLat(), def_latlng.getLng(), latlng.getLat(), latlng.getLng());
+	    	path = [def_latlng, latlng];
+	    }
+	    else 
+	    {
+	    	 distance=calcDistance(def_latlng.getLat(), def_latlng.getLng(), bus[mini].Lat, bus[mini].Lng)+
+		    	+calcDistance(bus[mini].Lat, bus[mini].Lng, station[minj].Lat, station[minj].Lng)
+				+ calcDistance(station[minj].Lat, station[minj].Lng, latlng.getLat(), latlng.getLng());
+	    	path = [def_latlng,new kakao.maps.LatLng(bus[mini].Lat,bus[mini].Lng),new kakao.maps.LatLng(station[minj].Lat,station[minj].Lng), latlng];
+	    }
+	    // 좌표 배열에 클릭한 위치를 추가합니다
+	    // 다시 선에 좌표 배열을 설정하여 클릭 위치까지 선을 그리도록 설정합니다
+	    clickLine.setPath(path);
+	    // 마커 위치를 클릭한 위치로 옮깁니다
+	    marker.setPosition(latlng);
+	    //displayCircleDot(latlng);
+	   
+	    var message = '클릭한 위치의 위도는 ' + latlng.getLat() + ' 이고, ';
+	    message += '경도는 ' + latlng.getLng() + ' 입니다<br>' + '총 거리는 ' + distance +'m 입니다.<br>'+ '따라서 도보로 '+mintime+'분만큼 소요됩니다.' ;
+	    
+	    var resultDiv = document.getElementById('clickLatlng'); 
+	    resultDiv.innerHTML = message;
+	    
+		});
+
+	function displayCircleDot(position) {
+
+	    var circleOverlay = new kakao.maps.CustomOverlay({
+	        content: '<span class="dot"></span>',
+	        position: position,
+	        zIndex: 1
+	    });
+	    circleOverlay.setMap(map);
+	}
+	
+	
+	//두개의 위도 경도 데이터에 대해 거리를 계산한다.
+	function calcDistance(lat1, lon1, lat2, lon2){
+		var EARTH_R, Rad, radLat1, radLat2, radDist; 
+		var distance, ret;
+		EARTH_R = 6371000.0;
+		Rad = Math.PI/180;
+		radLat1 = Rad * lat1;
+		radLat2 = Rad * lat2;
+		radDist = Rad * (lon1 - lon2);
+		distance = Math.sin(radLat1) * Math.sin(radLat2);
+		distance = distance + Math.cos(radLat1) * Math.cos(radLat2) * Math.cos(radDist);
+		ret = EARTH_R * Math.acos(distance);
+	 	var rtn = Math.round(ret);
+
+		return rtn;
+	}
+	function calcElapsedTime(dist)
+	{
+		// 도보의 시속은 평균 4km/h 이고 도보의 분속은 67m/min입니다.
+		var time = Math.round(dist/67);
+		return time;
+	}
+	
+</script>
+</body>
+</html>
